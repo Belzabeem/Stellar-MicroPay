@@ -10,6 +10,7 @@ import WalletConnect from "@/components/WalletConnect";
 import SendPaymentForm from "@/components/SendPaymentForm";
 import TransactionList from "@/components/TransactionList";
 import Toast from "@/components/Toast";
+import QRCodeModal from "@/components/QRCodeModal";
 import { getXLMBalance, shortenAddress } from "@/lib/stellar";
 import { formatXLM, formatUSD, copyToClipboard } from "@/utils/format";
 import { useToast } from "@/lib/useToast";
@@ -27,6 +28,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const [copied, setCopied] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { visible: toastVisible, message: toastMessage, showToast } = useToast();
+  const [showQRModal, setShowQRModal] = useState(false);
 
   const fetchBalance = useCallback(async () => {
     if (!publicKey) return;
@@ -215,6 +217,13 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
         </div>
       </div>
       <Toast message={toastMessage} visible={toastVisible} />
+
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        publicKey={publicKey}
+      />
     </div>
   );
 }
