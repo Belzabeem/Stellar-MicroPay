@@ -1,6 +1,9 @@
 /**
  * components/SendPaymentForm.tsx
  * Form for sending XLM payments to any Stellar address.
+ *
+ * Issue #8 — Add a 'Send Max' button tooltip explaining the 1 XLM reserve
+ * Emmy123222/Stellar-MicroPay
  */
 
 import { useState } from "react";
@@ -107,7 +110,7 @@ export default function SendPaymentForm({
         <p className="text-slate-400 text-sm mb-4">
           {formatXLM(amount)} sent successfully
         </p>
-        <a
+        
           href={explorerUrl(txHash)}
           target="_blank"
           rel="noopener noreferrer"
@@ -154,14 +157,45 @@ export default function SendPaymentForm({
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="label mb-0">Amount (XLM)</label>
-            <button
-              onClick={setMaxAmount}
-              className="text-xs text-stellar-400 hover:text-stellar-300 transition-colors"
-              disabled={status !== "idle"}
-            >
-              Max: {formatXLM(Math.max(0, balance - 1))}
-            </button>
+
+            {/* Issue #8 — info icon + pure CSS tooltip next to Max button */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={setMaxAmount}
+                className="text-xs text-stellar-400 hover:text-stellar-300 transition-colors"
+                disabled={status !== "idle"}
+              >
+                Max: {formatXLM(Math.max(0, balance - 1))}
+              </button>
+
+              <div className="relative group">
+                <button
+                  type="button"
+                  aria-label="Stellar requires a 1 XLM minimum balance in your account"
+                  className="w-4 h-4 flex items-center justify-center rounded-full border border-stellar-500/40 text-stellar-400 hover:border-stellar-500 hover:text-stellar-300 transition-colors focus:outline-none focus:ring-1 focus:ring-stellar-400"
+                >
+                  <InfoIcon className="w-2.5 h-2.5" />
+                </button>
+
+                {/* Tooltip — pure CSS, no library */}
+                <div
+                  role="tooltip"
+                  className={clsx(
+                    "pointer-events-none absolute bottom-full right-0 mb-2 w-56 z-50",
+                    "rounded-lg border border-stellar-500/20 bg-cosmos-800 px-3 py-2 shadow-lg",
+                    "text-xs text-slate-300 leading-relaxed",
+                    "opacity-0 scale-95 transition-all duration-150",
+                    "group-hover:opacity-100 group-hover:scale-100",
+                    "group-focus-within:opacity-100 group-focus-within:scale-100"
+                  )}
+                >
+                  Stellar requires a 1 XLM minimum balance in your account. The Max amount excludes this reserve.
+                  <span className="absolute -bottom-1.5 right-3 w-3 h-3 rotate-45 border-r border-b border-stellar-500/20 bg-cosmos-800" />
+                </div>
+              </div>
+            </div>
           </div>
+
           <input
             type="number"
             value={amount}
@@ -257,6 +291,15 @@ function ExternalLinkIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+    </svg>
+  );
+}
+
+// Issue #8 — Info icon for the 1 XLM reserve tooltip
+function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v.01M12 13v4m0-8a9 9 0 110 18A9 9 0 0112 4z" />
     </svg>
   );
 }
