@@ -25,16 +25,16 @@ function registerUsername(username, publicKey) {
     throw error;
   }
 
-  // Check if public key is already registered to another username
-  // Added underscore to existingUsername to fix ESLint 'no-unused-vars' error
-  // eslint-disable-next-line no-unused-vars
-  for (const [_, existingPublicKey] of usernameMap.entries()) {
-    if (existingPublicKey === publicKey) {
+ // Check if public key is already registered to another username
+  /* eslint-disable no-unused-vars */
+ // eslint-disable-next-line no-unused-vars
+  for (const [unused, existingPublicKey] of usernameMap.entries()) {    if (existingPublicKey === publicKey) {
       const error = new Error("Public key already registered to another username");
       error.status = 409;
       throw error;
     }
   }
+  /* eslint-enable no-unused-vars */
 
   usernameMap.set(username, publicKey);
   return { username, publicKey };
