@@ -30,18 +30,42 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const { visible: toastVisible, message: toastMessage, showToast } = useToast();
   const [showQRModal, setShowQRModal] = useState(false);
 
+  const isTestnet = process.env.NEXT_PUBLIC_STELLAR_NETWORK !== "mainnet";
+  const [accountNotFound, setAccountNotFound] = useState(false);
+  const [friendbotLoading, setFriendbotLoading] = useState(false);
+
   const fetchBalance = useCallback(async () => {
     if (!publicKey) return;
     setBalanceLoading(true);
+    setAccountNotFound(false);
     try {
       const bal = await getXLMBalance(publicKey);
       setXlmBalance(bal);
-    } catch {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg === ACCOUNT_NOT_FOUND_ERROR) {
+        setAccountNotFound(true);
+      }
       setXlmBalance(null);
     } finally {
       setBalanceLoading(false);
     }
   }, [publicKey]);
+
+  const handleFriendbot = async () => {
+    if (!publicKey) return;
+    setFriendbotLoading(true);
+    try {
+      await fundWithFriendbot(publicKey);
+      showToast("Account funded! Refreshing balance...");
+      // Give Horizon a moment to index the new account
+      setTimeout(() => setRefreshKey((k) => k + 1), 2000);
+    } catch {
+      showToast("Friendbot funding failed. Please try again.");
+    } finally {
+      setFriendbotLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchBalance();
@@ -111,6 +135,27 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
                 {xlmPrice !== null && <p className="text-sm text-slate-400 mt-0.5">{formatUSD(parseFloat(xlmBalance) * xlmPrice)}</p>}
                 <button onClick={fetchBalance} className="mt-1 text-xs text-slate-500 hover:text-stellar-400 transition-colors flex items-center gap-1 sm:justify-end">
                   <RefreshIcon className="w-3 h-3" /> Refresh
+                </button>
+              </div>
+            ) : accountNotFound && isTestnet ? (
+              <div className="sm:text-right">
+                <p className="text-amber-400 text-sm mb-2">Account not funded yet</p>
+                <button
+                  onClick={handleFriendbot}
+                  disabled={friendbotLoading}
+                  className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed text-black font-semibold text-sm py-2 px-4 rounded-lg transition-colors"
+                >
+                  {friendbotLoading ? (
+                    <>
+                      <SpinnerIcon className="w-4 h-4 animate-spin" />
+                      Funding...
+                    </>
+                  ) : (
+                    <>
+                      <DropIcon className="w-4 h-4" />
+                      Fund Testnet Account
+                    </>
+                  )}
                 </button>
               </div>
             ) : (
