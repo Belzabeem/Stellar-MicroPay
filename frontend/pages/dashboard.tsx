@@ -11,6 +11,7 @@ import SendPaymentForm from "@/components/SendPaymentForm";
 import TransactionList from "@/components/TransactionList";
 import Toast from "@/components/Toast";
 import QRCodeModal from "@/components/QRCodeModal";
+import ExternalPaymentBanner from "@/components/ExternalPaymentBanner";
 import {
   getXLMBalance,
   getUSDCBalance,
@@ -21,10 +22,12 @@ import {
 } from "@/lib/stellar";
 import { formatUSD, copyToClipboard } from "@/utils/format";
 import { useToast } from "@/lib/useToast";
+import { URIParseResult, uriToPrefillData } from "@/lib/sep0007";
 
 interface DashboardProps {
   publicKey: string | null;
   onConnect: (pk: string) => void;
+  stellarURI?: URIParseResult | null;
 }
 
 interface PaymentStats {
@@ -36,7 +39,7 @@ interface PaymentStats {
   totalTransactions: number;
 }
 
-export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
+export default function Dashboard({ publicKey, onConnect, stellarURI }: DashboardProps) {
   const [xlmBalance, setXlmBalance]   = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -53,6 +56,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
   const [paymentStatsLoading, setPaymentStatsLoading] = useState(false);
   const [paymentStatsError, setPaymentStatsError] = useState<string | null>(null);
   const [incomingPayment, setIncomingPayment] = useState<PaymentRecord | null>(null);
+  const [showExternalBanner, setShowExternalBanner] = useState(true);
 
   const fetchBalance = useCallback(async () => {
     if (!publicKey) return;
@@ -344,6 +348,15 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
         </div>
       )}
 
+      {/* External payment banner */}
+      {stellarURI && stellarURI.success && stellarURI.isExternal && showExternalBanner && (
+        <ExternalPaymentBanner
+          message={stellarURI.data?.msg}
+          originDomain={stellarURI.data?.originDomain}
+          onDismiss={() => setShowExternalBanner(false)}
+        />
+      )}
+
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
           <SendPaymentForm
@@ -352,6 +365,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             xlmBalance={xlmBalance || "0"}
             usdcBalance={usdcBalance}
             onSuccess={handlePaymentSuccess}
+            prefill={stellarURI && stellarURI.success ? uriToPrefillData(stellarURI.data!) : null}
           />
         </div>
 

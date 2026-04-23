@@ -8,6 +8,7 @@ import { useState, useEffect, createContext, useContext } from "react";
 import Head from "next/head";
 import Navbar from "@/components/Navbar";
 import { getConnectedPublicKey } from "@/lib/wallet";
+import { getStellarURIFromURL, registerProtocolHandler, URIParseResult } from "@/lib/sep0007";
 import "@/styles/globals.css";
 
 // ─── Theme Context ────────────────────────────────────────────────────────────
@@ -30,6 +31,7 @@ export const useTheme = () => useContext(ThemeContext);
 export default function App({ Component, pageProps }: AppProps) {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [stellarURI, setStellarURI] = useState<URIParseResult | null>(null);
 
   // Restore theme preference on load
   useEffect(() => {
@@ -39,11 +41,24 @@ export default function App({ Component, pageProps }: AppProps) {
     document.documentElement.classList.toggle("dark", preferred === "dark");
   }, []);
 
+  // Parse Stellar URI on page load
+  useEffect(() => {
+    const uriResult = getStellarURIFromURL();
+    if (uriResult) {
+      setStellarURI(uriResult);
+    }
+  }, []);
+
   // Restore wallet connection on load
   useEffect(() => {
     getConnectedPublicKey().then((pk) => {
       if (pk) setPublicKey(pk);
     });
+  }, []);
+
+  // Register protocol handler
+  useEffect(() => {
+    registerProtocolHandler();
   }, []);
 
   // Issue #19 — toggleTheme: switches theme, updates <html> class and localStorage
@@ -94,6 +109,7 @@ export default function App({ Component, pageProps }: AppProps) {
             publicKey={publicKey}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
+            stellarURI={stellarURI}
           />
         </main>
       </div>
