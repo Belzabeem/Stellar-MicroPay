@@ -73,6 +73,9 @@ interface BarcodeDetectorConstructor {
   new (options?: { formats?: string[] }): BarcodeDetectorLike;
 }
 
+const RECENT_RECIPIENTS_KEY = "stellar-micropay:recent-recipients";
+const MAX_RECENT = 3;
+
 export default function SendPaymentForm({
   publicKey,
   xlmBalance,
@@ -109,6 +112,25 @@ export default function SendPaymentForm({
   const frameRequestRef = useRef<number | null>(null);
   const isDetectingRef = useRef(false);
   const lastInvalidScanRef = useRef<string | null>(null);
+
+  const [recentRecipients, setRecentRecipients] = useState<string[]>(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(RECENT_RECIPIENTS_KEY) ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  const saveRecipient = (address: string) => {
+    const updated = [address, ...recentRecipients.filter((a) => a !== address)].slice(0, MAX_RECENT);
+    setRecentRecipients(updated);
+    sessionStorage.setItem(RECENT_RECIPIENTS_KEY, JSON.stringify(updated));
+  };
+
+  const clearRecipients = () => {
+    setRecentRecipients([]);
+    sessionStorage.removeItem(RECENT_RECIPIENTS_KEY);
+  };
 
   // Sync state if prefill data is provided (e.g., from a payment link)
   useEffect(() => {
@@ -311,6 +333,7 @@ export default function SendPaymentForm({
       const result = await submitTransaction(signedXDR);
       setTxHash(result.hash);
       setStatus("success");
+      saveRecipient(destination);
       onSuccess?.();
 
       // Reset form after delay
@@ -576,6 +599,34 @@ export default function SendPaymentForm({
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200 hover:bg-white/10 transition-colors"
                 >
                   {item.name} • {item.address.slice(0, 6)}...
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent recipients */}
+        {recentRecipients.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="label mb-0">Recent recipients</span>
+              <button
+                type="button"
+                onClick={clearRecipients}
+                className="text-xs text-slate-500 hover:text-red-400 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {recentRecipients.map((addr) => (
+                <button
+                  key={addr}
+                  type="button"
+                  onClick={() => setDestination(addr)}
+                  className="px-3 py-1.5 rounded-full border border-stellar-500/20 bg-stellar-500/5 text-stellar-300 text-xs font-mono hover:border-stellar-500/50 hover:bg-stellar-500/10 transition-all"
+                >
+                  {addr.slice(0, 4)}…{addr.slice(-4)}
                 </button>
               ))}
             </div>
