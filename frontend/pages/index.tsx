@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import WalletConnect from "@/components/WalletConnect";
+import { useCountUp } from "@/lib/useCountUp";
 
 interface HomeProps {
   publicKey: string | null;
@@ -21,9 +22,9 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { value: "3–5s", label: "Settlement time" },
-  { value: "$0.00001", label: "Average fee" },
-  { value: "100+", label: "Countries supported" },
+  { target: 5, label: "Settlement time", suffix: "s", prefix: "3–" },
+  { target: 0.00001, label: "Average fee", prefix: "$", decimals: 5 },
+  { target: 100, label: "Countries supported", suffix: "+" },
 ];
 
 export default function Home({ publicKey, onConnect }: HomeProps) {
@@ -79,12 +80,23 @@ export default function Home({ publicKey, onConnect }: HomeProps) {
         </div>
 
         <div className="grid grid-cols-3 gap-px bg-stellar-500/10 rounded-2xl overflow-hidden mb-24 border border-stellar-500/15 cursor-default">
-          {STATS.map((stat) => (
-            <div key={stat.label} className="bg-cosmos-900 text-center py-8 px-4">
-              <div className="font-display text-3xl font-bold text-gradient mb-1">{stat.value}</div>
-              <div className="text-slate-500 text-sm">{stat.label}</div>
-            </div>
-          ))}
+          {STATS.map((stat) => {
+            const { count, elementRef } = useCountUp(stat.target);
+            const formatValue = () => {
+              if (stat.decimals !== undefined) {
+                return count.toFixed(stat.decimals);
+              }
+              return count.toString();
+            };
+            return (
+              <div key={stat.label} ref={elementRef} className="bg-cosmos-900 text-center py-8 px-4">
+                <div className="font-display text-3xl font-bold text-gradient mb-1">
+                  {stat.prefix || ""}{formatValue()}{stat.suffix || ""}
+                </div>
+                <div className="text-slate-500 text-sm">{stat.label}</div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="grid sm:grid-cols-2 gap-5 mb-24">
