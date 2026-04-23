@@ -742,39 +742,72 @@ export function streamPayments(
   };
 }
 
+// ─── Network statistics ──────────────────────────────────────────────────────
+
 /**
- * Fetch a larger history of payments for statistical analysis.
- * Skips memo fetching to improve performance and avoid rate limits.
- *
- * @param publicKey - The Stellar public key to query.
- * @param limit - Max number of payments to fetch (Horizon max is 200).
+ * Network statistics fetched from Horizon API.
  */
-export async function getRecentPaymentsForStats(
-  publicKey: string,
-  limit = 200
-): Promise<PaymentRecord[]> {
-  const payments = await server
-    .payments()
-    .forAccount(publicKey)
-    .limit(limit)
-    .order("desc")
-    .call();
+export interface NetworkStats {
+  /** Latest ledger sequence number. */
+  latestLedgerSequence: number;
+  /** Last ledger close time as ISO string. */
+  lastLedgerCloseTime: string;
+  /** Average transaction count per ledger (calculated from recent ledgers). */
+  avgTransactionCount: number;
+  /** Current base fee in stroops. */
+  currentBaseFee: number;
+  /** P50 fee percentile in stroops. */
+  p50Fee: number;
+  /** P95 fee percentile in stroops. */
+  p95Fee: number;
+  /** P99 fee percentile in stroops. */
+  p99Fee: number;
+}
 
-  return payments.records.map((op) => {
-    const payment = op as Horizon.HorizonApi.PaymentOperationResponse;
-    const assetCode =
-      payment.asset_type === "native" ? "XLM" : payment.asset_code || "???";
+/**
+ * Fetch live Stellar network statistics from Horizon API.
+ *
+ * Combines data from /fee_stats and /ledgers endpoints to provide
+ * comprehensive network statistics including ledger info and fee stats.
+ *
+ * @returns A promise resolving to {@link NetworkStats}.
+ * @throws {Error} If the Horizon requests fail.
+ *
+ * @see {@link https://developers.stellar.org/docs/data/horizon/api-reference/aggregations/fee-stats | Fee Stats API}
+ * @see {@link https://developers.stellar.org/docs/data/horizon/api-reference/resources/ledgers | Ledgers API}
+ */
+export async function fetchNetworkStats(): Promise<NetworkStats> {
+  // Fetch fee statistics
+  const feeStatsResponse = await fetch(`${HORIZON_URL}/fee_stats`);
+  if (!feeStatsResponse.ok) {
+    throw new Error(`Failed to fetch fee stats: ${feeStatsResponse.status}`);
+  }
+  const feeStats = await feeStatsResponse.json();
 
-    return {
-      id: payment.id,
-      type: payment.from === publicKey ? "sent" : "received",
-      amount: payment.amount,
-      asset: assetCode,
-      from: payment.from,
-      to: payment.to,
-      createdAt: payment.created_at,
-      transactionHash: payment.transaction_hash,
-      pagingToken: payment.paging_token,
-    };
-  });
+  // Fetch latest ledger
+  const ledgersResponse = await fetch(`${HORIZON_URL}/ledgers?limit=10&order=desc`);
+  if (!ledgersResponse.ok) {
+    throw new Error(`Failed to fetch ledgers: ${ledgersResponse.status}`);
+  }
+  const ledgersData = await ledgersResponse.json();
+
+  const latestLedger = ledgersData._embedded.records[0];
+  const recentLedgers = ledgersData._embedded.records.slice(0, 10);
+
+  // Calculate average transaction count from recent ledgers
+  const totalTransactions = recentLedgers.reduce(
+    (sum: number, ledger: any) => sum + parseInt(ledger.successful_transaction_count, 10),
+    0
+  );
+  const avgTransactionCount = Math.round(totalTransactions / recentLedgers.length);
+
+  return {
+    latestLedgerSequence: parseInt(latestLedger.sequence, 10),
+    lastLedgerCloseTime: latestLedger.closed_at,
+    avgTransactionCount,
+    currentBaseFee: parseInt(feeStats.last_ledger_base_fee, 10),
+    p50Fee: parseInt(feeStats.fee_charged.p50, 10),
+    p95Fee: parseInt(feeStats.fee_charged.p95, 10),
+    p99Fee: parseInt(feeStats.fee_charged.p99, 10),
+  };
 }
