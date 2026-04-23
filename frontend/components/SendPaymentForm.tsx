@@ -97,6 +97,7 @@ export default function SendPaymentForm({
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
+  const [selectedMemoTemplate, setSelectedMemoTemplate] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -132,6 +133,26 @@ export default function SendPaymentForm({
     sessionStorage.removeItem(RECENT_RECIPIENTS_KEY);
   };
 
+  const memoTemplates = ["Rent", "Salary", "Invoice", "Gift", "Coffee ☕"];
+
+  const handleMemoTemplateClick = (template: string) => {
+    if (selectedMemoTemplate === template) {
+      setSelectedMemoTemplate(null);
+      setMemo("");
+      return;
+    }
+
+    setSelectedMemoTemplate(template);
+    setMemo(template);
+  };
+
+  const handleMemoChange = (value: string) => {
+    setMemo(value);
+    if (value !== selectedMemoTemplate) {
+      setSelectedMemoTemplate(null);
+    }
+  };
+
   // Sync state if prefill data is provided (e.g., from a payment link)
   useEffect(() => {
     if (prefill) {
@@ -141,17 +162,11 @@ export default function SendPaymentForm({
     }
   }, [prefill]);
 
-  useEffect(() => {
-    if (!assetOptions.includes(selectedAsset)) {
-      setSelectedAsset(assetOptions[0] || "XLM");
-    }
-  }, [assetOptions, selectedAsset]);
-
-  const xlmBal  = parseFloat(xlmBalance);
+  const xlmBal = parseFloat(xlmBalance);
   const usdcBal = usdcBalance ? parseFloat(usdcBalance) : 0;
   // XLM has a 1 XLM reserve; USDC has no such constraint
-  const balance  = selectedAsset === "XLM" ? xlmBal : usdcBal;
-  const maxSend  = selectedAsset === "XLM" ? Math.max(0, xlmBal - 1) : usdcBal;
+  const balance = selectedAsset === "XLM" ? xlmBal : usdcBal;
+  const maxSend = selectedAsset === "XLM" ? Math.max(0, xlmBal - 1) : usdcBal;
 
   const amountNum = parseFloat(amount);
   const isValidDest = destination.length > 0 && isValidStellarAddress(destination);
@@ -308,16 +323,16 @@ export default function SendPaymentForm({
       setStatus("building");
       const tx = isTipOnChain
         ? await buildSorobanTipTransaction({
-            fromPublicKey: publicKey,
-            toPublicKey: destination,
-            amount: amountNum.toFixed(7),
-          })
+          fromPublicKey: publicKey,
+          toPublicKey: destination,
+          amount: amountNum.toFixed(7),
+        })
         : await buildPaymentTransaction({
-            fromPublicKey: publicKey,
-            toPublicKey: destination,
-            amount: amountNum.toFixed(7),
-            memo: memo.trim() || undefined,
-          });
+          fromPublicKey: publicKey,
+          toPublicKey: destination,
+          amount: amountNum.toFixed(7),
+          memo: memo.trim() || undefined,
+        });
 
       // Step 2: Sign with Freighter
       setStatus("signing");
@@ -709,15 +724,38 @@ export default function SendPaymentForm({
           <input
             type="text"
             value={memo}
-            onChange={(e) => setMemo(e.target.value)}
+            onChange={(e) => handleMemoChange(e.target.value)}
             placeholder="Payment note..."
             maxLength={28}
             className="input-field"
             disabled={status !== "idle"}
           />
-          <p className="mt-1 text-xs text-slate-500">{`${memo.length}/28 characters`}</p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {memoTemplates.map((template) => {
+              const isActive = selectedMemoTemplate === template;
+              return (
+                <button
+                  key={template}
+                  type="button"
+                  onClick={() => handleMemoTemplateClick(template)}
+                  disabled={status !== "idle"}
+                  className={clsx(
+                    "inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-stellar-500/20 border-stellar-500/30 text-stellar-300"
+                      : "bg-stellar-500/10 border-stellar-500/15 text-slate-300 hover:bg-stellar-500/15",
+                    status !== "idle" && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {template}
+                </button>
+              );
+            })}
           </div>
-        )}
+
+          <p className="mt-3 text-xs text-slate-500">{`${memo.length}/28 characters`}</p>
+        </div>
 
         {/* Record as Tip On-Chain (Soroban) */}
         {CONTRACT_ID && (

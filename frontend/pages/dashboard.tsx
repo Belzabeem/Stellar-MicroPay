@@ -14,7 +14,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import Link from "next/link";
-import PaymentRequestGenerator from "@/components/PaymentRequestGenerator";
+import { useRouter } from "next/router";
+import PaymentLinkGenerator from "@/components/PaymentLinkGenerator";
 import WalletConnect from "@/components/WalletConnect";
 import SendPaymentForm from "@/components/SendPaymentForm";
 import TransactionList from "@/components/TransactionList";
@@ -49,6 +50,7 @@ interface PaymentStats {
 }
 
 export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
+  const router = useRouter();
   const [xlmBalance, setXlmBalance]   = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -61,6 +63,15 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
 
   const isTestnet = process.env.NEXT_PUBLIC_STELLAR_NETWORK !== "mainnet";
   const [accountNotFound, setAccountNotFound] = useState(false);
+
+  // Build prefill object from query parameters (e.g., from contacts page)
+  const prefill = router.query.prefillDestination
+    ? {
+        destination: router.query.prefillDestination as string,
+        amount: "",
+        memo: "",
+      }
+    : null;
   const [friendbotLoading, setFriendbotLoading] = useState(false);
   const [friendbotSuccessMessage, setFriendbotSuccessMessage] = useState<string | null>(null);
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null);
@@ -527,6 +538,7 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
             xlmBalance={xlmBalance || "0"}
             usdcBalance={usdcBalance}
             onSuccess={handlePaymentSuccess}
+            prefill={prefill}
           />
         </div>
 
