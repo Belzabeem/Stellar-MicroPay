@@ -11,6 +11,7 @@ import SendPaymentForm from "@/components/SendPaymentForm";
 import TransactionList from "@/components/TransactionList";
 import Toast from "@/components/Toast";
 import QRCodeModal from "@/components/QRCodeModal";
+import { getJwtToken, performSEP0010Auth } from "@/lib/wallet";
 import {
   getXLMBalance,
   getUSDCBalance,
@@ -91,8 +92,15 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
     setPaymentStatsError(null);
 
     try {
+      const headers: HeadersInit = {};
+      const token = getJwtToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch(
-        `${apiBase}/api/payments/${encodeURIComponent(publicKey)}/stats`
+        `${apiBase}/api/payments/${encodeURIComponent(publicKey)}/stats`,
+        { headers }
       );
 
       if (!response.ok) {
@@ -127,6 +135,21 @@ export default function Dashboard({ publicKey, onConnect }: DashboardProps) {
       setPaymentStatsLoading(false);
     }
   }, [publicKey]);
+
+  // SEP-0010 Authentication effect: Automatically sign in when the wallet connects
+  useEffect(() => {
+    const authenticate = async () => {
+      if (publicKey && !getJwtToken()) {
+        try {
+          await performSEP0010Auth(publicKey);
+          fetchPaymentStats(); // Refresh stats with the newly acquired authentication token
+        } catch (err) {
+          console.error("Automatic SEP-0010 authentication failed:", err);
+        }
+      }
+    };
+    authenticate();
+  }, [publicKey, fetchPaymentStats]);
 
   const handleFriendbot = async () => {
     if (!publicKey) return;
